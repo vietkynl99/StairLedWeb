@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Giao Tiếp Bluetooth</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            padding: 50px;
+        }
+
+        button,
+        input {
+            padding: 10px;
+            font-size: 16px;
+            margin: 5px;
+        }
+
+        #output {
+            margin-top: 20px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            height: 150px;
+            overflow-y: scroll;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Giao Tiếp Bluetooth</h1>
+    <button id="connect-btn">Kết nối thiết bị</button>
+    <input type="text" id="input-data" placeholder="Nhập dữ liệu">
+    <button id="send-btn">Gửi dữ liệu</button>
+
+    <div id="output">Output sẽ hiển thị ở đây</div>
+
+    <script src="js/BluetoothTerminal.js"></script>
+    <script src="js/main.js"></script>
+</body>
+
+</html>
