@@ -4,7 +4,7 @@ const inputData = document.getElementById('input-data')
 const outputDiv = document.getElementById('output')
 
 
-const terminal = new BluetoothTerminal('ESP32')
+const terminal = new BluetoothTerminal('ESP32', '6e400001-b5a3-f393-e0a9-e50e24dcca9e')
 
 terminal.receive = function (data) {
     // logToTerminal(data, 'in');

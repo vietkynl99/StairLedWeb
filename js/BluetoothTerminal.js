@@ -8,7 +8,7 @@ class BluetoothTerminal {
    * @param {string} [receiveSeparator='\n'] - Receive separator
    * @param {string} [sendSeparator='\n'] - Send separator
    */
-  constructor(deviceName = null, serviceUuid = '', receiveSeparator = '\n', sendSeparator = '\n') {
+  constructor(deviceName, serviceUuid, receiveSeparator = '\n', sendSeparator = '\n') {
     // Used private variables.
     this._deviceName = deviceName;
     this._serviceUuid = serviceUuid;
@@ -168,13 +168,10 @@ class BluetoothTerminal {
   _requestBluetoothDevice() {
     this._log('Requesting bluetooth device...');
 
-    let filter = {};
-    if (this._deviceName) {
-      filter.name = this._deviceName;
-    }
-    if (this._serviceUuid) {
-      filter.services = this._serviceUuid;
-    }
+    let filter = {
+      name: this._deviceName,
+      services : [this._serviceUuid]
+    };
 
     return navigator.bluetooth.requestDevice({
       filters: [filter],
@@ -207,13 +204,9 @@ class BluetoothTerminal {
     return device.gatt.connect().
       then((server) => {
         this._log('GATT server connected')
-        return server.getPrimaryServices()
+        return server.getPrimaryService(this._serviceUuid)
       }).
-      then((services) => {
-        this._log(`Found ${services.length} services`)
-        const service = services[0]
-        this._serviceUuid = service.uuid
-        this._log(`Service UUID: ${service.uuid}`)
+      then((service) => {
         return service.getCharacteristics();
       }).
       then((characteristics) => {
