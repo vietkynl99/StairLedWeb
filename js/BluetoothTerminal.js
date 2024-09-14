@@ -15,6 +15,7 @@ class BluetoothTerminal {
     this._receiveSeparator = receiveSeparator;
     this._sendSeparator = sendSeparator;
 
+    this._connected = false;
     this._receiveBuffer = ''; // Buffer containing not separated data.
     this._maxCharacteristicValueLength = 20; // Max characteristic value length.
     this._device = null; // Device object cache.
@@ -41,13 +42,28 @@ class BluetoothTerminal {
   disconnect() {
     this._disconnectFromDevice(this._device);
 
-    if (this._characteristic) {
-      this._characteristic.removeEventListener('characteristicvaluechanged',
+    if (this._rxCharacteristic) {
+      this._rxCharacteristic.removeEventListener('characteristicvaluechanged',
         this._boundHandleCharacteristicValueChanged);
-      this._characteristic = null;
+      this._rxCharacteristic = null;
     }
 
     this._device = null;
+  }
+
+  /**
+   * 
+   * @returns {boolean} Connection state
+   */
+  isConnected() {
+    return this._connected;
+  }
+
+  /**
+   * 
+   * @param {boolean} connected 
+   */
+  onConnectionChanged(connected) {
   }
 
   /**
@@ -120,6 +136,17 @@ class BluetoothTerminal {
   }
 
   /**
+   * 
+   * @param {boolean} connected 
+   */
+  _setConnected(connected) {
+    if (this._connected != connected) {
+      this._connected = connected;
+      this.onConnectionChanged(connected);
+    }
+  }
+
+  /**
    * Connect to device.
    * @param {Object} device
    * @return {Promise}
@@ -170,7 +197,7 @@ class BluetoothTerminal {
 
     let filter = {
       name: this._deviceName,
-      services : [this._serviceUuid]
+      services: [this._serviceUuid]
     };
 
     return navigator.bluetooth.requestDevice({
@@ -195,8 +222,8 @@ class BluetoothTerminal {
    */
   _connectCharacteristics(device) {
     // Check remembered characteristic.
-    if (device.gatt.connected && this._characteristic) {
-      return Promise.resolve(this._characteristic);
+    if (device.gatt.connected && this._txCharacteristic && this._rxCharacteristic) {
+      return Promise.resolve();
     }
 
     this._log('Connecting to GATT server...')
@@ -227,6 +254,7 @@ class BluetoothTerminal {
         this._log('Notifications started');
         this._rxCharacteristic.addEventListener('characteristicvaluechanged',
           this._boundHandleCharacteristicValueChanged);
+        this._setConnected(true);
       }
       )
   }
@@ -256,9 +284,10 @@ class BluetoothTerminal {
    */
   _handleDisconnection(event) {
     const device = event.target;
-
     this._log('"' + device.name +
       '" bluetooth device disconnected, trying to reconnect...');
+
+    this._setConnected(false);
 
     this._connectCharacteristics(device).
       catch((error) => this._log(error));
