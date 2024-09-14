@@ -33,8 +33,8 @@ chatInput.addEventListener('keypress', function (event) {
     if (event.key === 'Enter') {
         const message = chatInput.value.trim();
         if (message) {
+            addToChat(message, 'blue')
             terminal.send(message).
-                then(() => addToChat(message, 'blue')).
                 catch((error) => addToChat(error, 'red'))
 
             chatInput.value = ''

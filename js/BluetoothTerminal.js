@@ -97,7 +97,7 @@ class BluetoothTerminal {
       this._maxCharacteristicValueLength);
 
     // Return rejected promise immediately if there is no connected device.
-    if (!this._txCharacteristic) {
+    if (!this._connected) {
       return Promise.reject(new Error('There is no connected device'));
     }
 
