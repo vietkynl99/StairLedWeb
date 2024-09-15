@@ -32,18 +32,6 @@ function addToChat(message, color = 'black') {
     chatMessages.scrollTop = chatMessages.scrollHeight;
 }
 
-// function sendMessage(event) {
-//     if (event.key === 'Enter') {
-//         const input = document.getElementById('chatInput');
-//         const message = input.value.trim();
-
-//         if (message !== '') {
-//             addToChat(message, 'blue')
-//             input.value = '';
-//         }
-//     }
-// }
-
 function updateSlider(id) {
     document.getElementById(id + 'Value').innerText = document.getElementById(id).value;
 }

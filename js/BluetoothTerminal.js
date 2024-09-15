@@ -156,7 +156,7 @@ class BluetoothTerminal {
     return (device ? Promise.resolve(device) : this._requestBluetoothDevice()).
       then((device) => this._connectCharacteristics(device)).
       catch((error) => {
-        this._log(error);
+        this._log(error, 'error');
         return Promise.reject(error);
       });
   }
@@ -290,7 +290,7 @@ class BluetoothTerminal {
     this._setConnected(false);
 
     this._connectCharacteristics(device).
-      catch((error) => this._log(error));
+      catch((error) => this._log(error, 'error'));
   }
 
   /**
@@ -331,8 +331,8 @@ class BluetoothTerminal {
    * @param {Array} messages
    * @private
    */
-  _log(...messages) {
-    console.log(...messages); // eslint-disable-line no-console
+  _log(message, type = 'debug') {
+    console.log(message); // eslint-disable-line no-console
   }
 
   /**
