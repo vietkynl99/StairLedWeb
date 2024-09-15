@@ -9,7 +9,6 @@ function log(message, type = 'debug') {
 }
 
 terminal.receive = function (data) {
-    console.log(data)
     addToChat(data, 'green')
 }
 
