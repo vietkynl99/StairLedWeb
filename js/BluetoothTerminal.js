@@ -19,8 +19,7 @@ class BluetoothTerminal {
     this._receiveBuffer = ''; // Buffer containing not separated data.
     this._maxCharacteristicValueLength = 20; // Max characteristic value length.
     this._device = null; // Device object cache.
-    this._txCharacteristic = null; // Tx characteristic object cache.
-    this._rxCharacteristic = null; // Rx characteristic object cache.
+    this._characteristic = null; // Characteristic object cache.
 
     // Bound functions used to add and remove appropriate event handlers.
     this._boundHandleDisconnection = this._handleDisconnection.bind(this);
@@ -42,10 +41,10 @@ class BluetoothTerminal {
   disconnect() {
     this._disconnectFromDevice(this._device);
 
-    if (this._rxCharacteristic) {
-      this._rxCharacteristic.removeEventListener('characteristicvaluechanged',
+    if (this._characteristic) {
+      this._characteristic.removeEventListener('characteristicvaluechanged',
         this._boundHandleCharacteristicValueChanged);
-      this._rxCharacteristic = null;
+      this._characteristic = null;
     }
 
     this._device = null;
@@ -102,19 +101,19 @@ class BluetoothTerminal {
     }
 
     // Write first chunk to the characteristic immediately.
-    let promise = this._writeToCharacteristic(this._txCharacteristic, chunks[0]);
+    let promise = this._writeToCharacteristic(this._characteristic, chunks[0]);
 
     // Iterate over chunks if there are more than one of it.
     for (let i = 1; i < chunks.length; i++) {
       // Chain new promise.
       promise = promise.then(() => new Promise((resolve, reject) => {
         // Reject promise if the device has been disconnected.
-        if (!this._txCharacteristic) {
+        if (!this._characteristic) {
           reject(new Error('Device has been disconnected'));
         }
 
         // Write chunk to the characteristic and resolve the promise.
-        this._writeToCharacteristic(this._txCharacteristic, chunks[i]).
+        this._writeToCharacteristic(this._characteristic, chunks[i]).
           then(resolve).
           catch(reject);
       }));
@@ -222,7 +221,7 @@ class BluetoothTerminal {
    */
   _connectCharacteristics(device) {
     // Check remembered characteristic.
-    if (device.gatt.connected && this._txCharacteristic && this._rxCharacteristic) {
+    if (device.gatt.connected && this._characteristic) {
       return Promise.resolve();
     }
 
@@ -238,21 +237,15 @@ class BluetoothTerminal {
       }).
       then((characteristics) => {
         this._log(`Found ${characteristics.length} characteristics`)
-        characteristics.sort((a, b) => a.uuid.localeCompare(b.uuid))
-        characteristics.forEach(characteristic => {
-          console.log(`Characteristic UUID: ${characteristic.uuid}`)
-        })
-
-        if (characteristics.length !== 2) {
+        if (!characteristics.length) {
           reject(new Error('Characteristics size is invalid'));
         }
-        this._txCharacteristic = characteristics[0]
-        this._rxCharacteristic = characteristics[1]
-        return this._rxCharacteristic.startNotifications()
+        this._characteristic = characteristics[0]
+        return this._characteristic.startNotifications()
       }).
       then(() => {
         this._log('Notifications started');
-        this._rxCharacteristic.addEventListener('characteristicvaluechanged',
+        this._characteristic.addEventListener('characteristicvaluechanged',
           this._boundHandleCharacteristicValueChanged);
         this._setConnected(true);
       }
