@@ -24,6 +24,7 @@ class BluetoothTerminal {
     this._receiveBuffer = {
       isReceiving: false,
       command: 0,
+      data: null,
       dataSize: 0,
       receivedSize: 0,
     }
@@ -90,9 +91,10 @@ class BluetoothTerminal {
   /**
    * Data receiving handler which called whenever the new data comes from
    * the connected device, override it to handle incoming data.
-   * @param {string} data - Data
+   * @param {number} command - Command
+   * @param {Uint8Array} data - Data
    */
-  receive(data) {
+  receive(command, data) {
     // Handle incoming data.
   }
 
@@ -154,12 +156,12 @@ class BluetoothTerminal {
     }
 
     return promise.then(() => {
-      const endTime = performance.now();
-      const timeTaken = endTime - startTime;
-      const sizeKB = data.length / 1024;
-      const KBps = sizeKB * 1000 / timeTaken;
-      const formatedSize = sizeKB ? Math.round(sizeKB) + "KB" : data.length + "B";
-      console.log(`Size ${Math.round(data.length)}B, time taken: ${Math.round(timeTaken)}ms (${Math.round(KBps)}KB/s)`);
+      // const endTime = performance.now();
+      // const timeTaken = endTime - startTime;
+      // const sizeKB = data.length / 1024;
+      // const KBps = sizeKB * 1000 / timeTaken;
+      // const formatedSize = sizeKB ? Math.round(sizeKB) + "KB" : data.length + "B";
+      // console.log(`Size ${Math.round(data.length)}B, time taken: ${Math.round(timeTaken)}ms (${Math.round(KBps)}KB/s)`);
     }).catch(error => {
       throw error;
     });
@@ -178,8 +180,6 @@ class BluetoothTerminal {
   }
 
   _sendCommand(command, data = null, onProgress = null) {
-    console.log('Send cmd ' + command);
-
     let dataSize = data != null ? data.length : 0;
     let byteArray = [];
     byteArray.push(BLE_CMD_START_BYTE);
@@ -366,41 +366,56 @@ class BluetoothTerminal {
     if (size == 0) {
       return;
     }
-
-    if (!this._receiveBuffer.isReceiving) {
-      if (byteArray.length > 6 && byteArray[0] == BLE_CMD_START_BYTE) {
-        this._receiveBuffer.command = byteArray[1];
-        this._receiveBuffer.dataSize = (byteArray[2] << 24) | (byteArray[3] << 16) | (byteArray[4] << 8) | byteArray[5];
-        this._receiveBuffer.receivedSize = size;
-        this._receiveBuffer.crc = 0;
-        this._receiveBuffer.data = byteArray;
-        if (this._receiveBuffer.receivedSize < this._receiveBuffer.dataSize + 7) {
-          this._receiveBuffer.isReceiving = true;
-        }
+    
+    if (!this._receiveBuffer.isReceiving && byteArray.length > 6 && byteArray[0] == BLE_CMD_START_BYTE) {
+      this._receiveBuffer.command = byteArray[1];
+      this._receiveBuffer.dataSize = (byteArray[2] << 24) | (byteArray[3] << 16) | (byteArray[4] << 8) | byteArray[5];
+      this._receiveBuffer.receivedSize = size;
+      this._receiveBuffer.data = new Uint8Array(byteArray.buffer);
+      this._receiveBuffer.crc = 0;
+      if (this._receiveBuffer.receivedSize < this._receiveBuffer.dataSize + 7) {
+        this._receiveBuffer.isReceiving = true;
       }
     }
-    else {
-      const combinedArray = new Uint8Array(this._receiveBuffer.data.length + byteArray.length);
-      combinedArray.set(this._receiveBuffer.data, 0);
-      combinedArray.set(byteArray, this._receiveBuffer.data.length);
-      this._receiveBuffer.data = combinedArray;
+    else if (this._receiveBuffer.isReceiving) {
       this._receiveBuffer.receivedSize += size;
+      this._receiveBuffer.data = new Uint8Array([...this._receiveBuffer.data, ...new Uint8Array(byteArray.buffer)]);
+    }
+    else {
+      console.error('Error occured');
+      return;
     }
 
     for (let i = 0; i < size; i++) {
       this._receiveBuffer.crc ^= byteArray[i];
     }
 
-    // console.log("Recv " + " cmd " + this._receiveBuffer.command + ", receivedSize " + this._receiveBuffer.receivedSize + ", dataSize " + this._receiveBuffer.dataSize);
+    // console.log("Recv cmd " + this._receiveBuffer.command +
+    //   ", receivedSize " + this._receiveBuffer.receivedSize +
+    //   ", dataSize " + this._receiveBuffer.dataSize);
 
     // Receive done
-    if (this._receiveBuffer.receivedSize >= this._reiceiveBuffer.dataSze + 7) {
-      if (this._receiveBuffer.crc !== 0) {
+    if (this._receiveBuffer.receivedSize >= this._receiveBuffer.dataSize + 7) {
+      if (this._receiveBuffer.crc != 0) {
         console.error('CRC error ' + this._receiveBuffer.crc);
       }
       else {
-        this._receiveBuffer.data = byteArray.buffer.slice(6, this._reiceiveBuffer.dataSze +6);
-        console.log("Recv " + this._receiveBuffer.receivedSize + "bytes, cmd " + this._receiveBuffer.command);
+        this._receiveBuffer.data = this._receiveBuffer.data.slice(6, -1);
+        if (this._receiveBuffer.data.length != this._receiveBuffer.dataSize) {
+          console.error('Invalid data size ' + this._receiveBuffer.data.length + ', expected ' + this._receiveBuffer.dataSize);
+        }
+        else {
+          console.log("Recv " + this._receiveBuffer.receivedSize + "bytes, cmd " + this._receiveBuffer.command +
+            ", dataSize " + this._receiveBuffer.dataSize + ", data.length " + this._receiveBuffer.data.length);
+          this.receive(this._receiveBuffer.command, this._receiveBuffer.data);
+        }
+      }
+      this._receiveBuffer = {
+        isReceiving: false,
+        command: 0,
+        data: null,
+        dataSize: 0,
+        receivedSize: 0,
       }
     }
   }
