@@ -19,10 +19,9 @@ let mtuSize = 23;
 const toggleConnectionBtn = document.getElementById('toggleConnectionBtn')
 const chatInput = document.getElementById('chatInput')
 
-const terminal = new BluetoothTerminal('ESP32', '6e400001-120f-ee11-e0a9-e50e24dcca9e')
+const terminal = new BluetoothTerminal('Stair Led', '013052ff-8771-46a9-89f8-eedbedd76935')
 
 terminal.setMtuSize(mtuSize);
-
 
 function log(message, type = 'debug') {
     console.log(message)
