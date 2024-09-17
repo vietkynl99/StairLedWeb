@@ -1,11 +1,37 @@
+// BLE command Client -> server
+const BLE_CMD_GET_MTU = 1;
+const BLE_CMD_SET_MTU = 2;
+const BLE_CMD_START_OTA = 3;
+const BLE_CMD_STOP_OTA = 4;
+
+// BLE command Server -> client
+const BLE_CMD_NOTIFY_MTU = 50;
+const BLE_CMD_NOTIFY_OTA_STARTED = 51;
+const BLE_CMD_NOTIFY_OTA_PROGRESS = 52;
+const BLE_CMD_NOTIFY_OTA_DONE = 53;
+const BLE_CMD_NOTIFY_OTA_ERROR = 54;
+
+// BLE custom command
+const BLE_CMD_SEND_MESSAGE = 100;
+
+let mtuSize = 23;
+
 const toggleConnectionBtn = document.getElementById('toggleConnectionBtn')
 const chatInput = document.getElementById('chatInput')
 
-const terminal = new BluetoothTerminal('Stair Led', '6e400001-b5a3-f393-e0a9-e50e24dcca9e')
+const terminal = new BluetoothTerminal('ESP32', '6e400001-120f-ee11-e0a9-e50e24dcca9e')
+
+terminal.setMtuSize(mtuSize);
+
 
 function log(message, type = 'debug') {
     console.log(message)
     addToChat(message, type === 'error' ? 'red' : 'black')
+}
+
+function sendCommand(command, data = null, onProgress = null) {
+    terminal._sendCommand(command, data, onProgress).
+        catch((error) => log(error, 'error'))
 }
 
 terminal.receive = function (data) {
@@ -17,6 +43,9 @@ terminal._log = log
 terminal.onConnectionChanged = function (connected) {
     log('Connection changed to ' + connected)
     setBluetoothIcon(terminal.isConnected())
+    if (connected) {
+        sendCommand(BLE_CMD_GET_MTU);
+    }
 }
 
 toggleConnectionBtn.addEventListener('click', () => {
@@ -29,8 +58,16 @@ chatInput.addEventListener('keypress', function (event) {
         const message = chatInput.value.trim()
         if (message) {
             addToChat(message, 'blue')
-            terminal.send(message).
-                catch((error) => log(error, 'error'))
+            switch (message) {
+                case 'get-mtu':
+                    sendCommand(BLE_CMD_GET_MTU);
+                    break;
+                default:
+                    sendCommand(BLE_CMD_SEND_MESSAGE, message, (percent) => {
+                        console.log('Percent ' + percent + '%')
+                    })
+                    break;
+            }
 
             chatInput.value = ''
         }

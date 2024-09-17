@@ -1,3 +1,5 @@
+const BLE_CMD_START_BYTE = 0xC0;
+
 /**
  * Bluetooth Terminal class.
  */
@@ -16,10 +18,15 @@ class BluetoothTerminal {
     this._sendSeparator = sendSeparator;
 
     this._connected = false;
-    this._receiveBuffer = ''; // Buffer containing not separated data.
-    this._maxCharacteristicValueLength = 20; // Max characteristic value length.
+    this._mtuSize = 23; // Max characteristic value length.
     this._device = null; // Device object cache.
     this._characteristic = null; // Characteristic object cache.
+    this._receiveBuffer = {
+      isReceiving: false,
+      command: 0,
+      dataSize: 0,
+      receivedSize: 0,
+    }
 
     // Bound functions used to add and remove appropriate event handlers.
     this._boundHandleDisconnection = this._handleDisconnection.bind(this);
@@ -60,6 +67,21 @@ class BluetoothTerminal {
 
   /**
    * 
+   * @returns {size} MTU size
+   */
+  getMtuSize() {
+    return this._mtuSize;
+  }
+
+  /**
+   * 
+   * @param {size} size 
+   */
+  setMtuSize(size) {
+    this._mtuSize = size;
+  }
+  /**
+   * 
    * @param {boolean} connected 
    */
   onConnectionChanged(connected) {
@@ -76,32 +98,39 @@ class BluetoothTerminal {
 
   /**
    * Send data to the connected device.
-   * @param {string} data - Data
+   * @param {Uint8Array} data - Data
    * @return {Promise} Promise which will be fulfilled when data will be sent or
    *                   rejected if something went wrong
    */
-  send(data) {
-    // Convert data to the string using global object.
-    data = String(data || '');
-
+  send(data, onProgress = null) {
     // Return rejected promise immediately if data is empty.
     if (!data) {
       return Promise.reject(new Error('Data must be not empty'));
     }
-
-    data += this._sendSeparator;
-
-    // Split data to chunks by max characteristic value length.
-    const chunks = this.constructor._splitByLength(data,
-      this._maxCharacteristicValueLength);
 
     // Return rejected promise immediately if there is no connected device.
     if (!this._connected) {
       return Promise.reject(new Error('There is no connected device'));
     }
 
-    // Write first chunk to the characteristic immediately.
-    let promise = this._writeToCharacteristic(this._characteristic, chunks[0]);
+    const buffer = new Uint8Array(data).buffer;
+
+    const chunkSize = this._mtuSize - 3;
+    let chunks = [];
+    for (let i = 0; i < buffer.byteLength; i += chunkSize) {
+      chunks.push(buffer.slice(i, i + chunkSize));
+    }
+
+    const startTime = performance.now();
+    let totalChunks = chunks.length;
+    let sentChunks = 0;
+
+    let promise = this._writeToCharacteristic(this._characteristic, chunks[0]).
+      then(() => {
+        sentChunks++;
+        const percent = Math.floor((sentChunks / totalChunks) * 100);
+        if (onProgress) onProgress(percent);
+      });
 
     // Iterate over chunks if there are more than one of it.
     for (let i = 1; i < chunks.length; i++) {
@@ -113,13 +142,27 @@ class BluetoothTerminal {
         }
 
         // Write chunk to the characteristic and resolve the promise.
-        this._writeToCharacteristic(this._characteristic, chunks[i]).
-          then(resolve).
-          catch(reject);
+        this._writeToCharacteristic(this._characteristic, chunks[i])
+          .then(() => {
+            sentChunks++;
+            const percent = Math.floor((sentChunks / totalChunks) * 100);
+            if (onProgress) onProgress(percent);
+            resolve();
+          })
+          .catch(reject);
       }));
     }
 
-    return promise;
+    return promise.then(() => {
+      const endTime = performance.now();
+      const timeTaken = endTime - startTime;
+      const sizeKB = data.length / 1024;
+      const KBps = sizeKB * 1000 / timeTaken;
+      const formatedSize = sizeKB ? Math.round(sizeKB) + "KB" : data.length + "B";
+      console.log(`Size ${Math.round(data.length)}B, time taken: ${Math.round(timeTaken)}ms (${Math.round(KBps)}KB/s)`);
+    }).catch(error => {
+      throw error;
+    });
   }
 
   /**
@@ -132,6 +175,30 @@ class BluetoothTerminal {
     }
 
     return this._device.name;
+  }
+
+  _sendCommand(command, data = null, onProgress = null) {
+    console.log('Send cmd ' + command);
+
+    let dataSize = data != null ? data.length : 0;
+    let byteArray = [];
+    byteArray.push(BLE_CMD_START_BYTE);
+    byteArray.push(command);
+    byteArray.push((dataSize >> 24) & 0xFF);
+    byteArray.push((dataSize >> 16) & 0xFF);
+    byteArray.push((dataSize >> 8) & 0xFF);
+    byteArray.push(dataSize & 0xFF);
+    for (let i = 0; i < dataSize; i++) {
+      byteArray.push(data.charCodeAt(i));
+    }
+
+    let crc = 0;
+    for (let i = 0; i < byteArray.length; i++) {
+      crc ^= byteArray[i];
+    }
+    byteArray.push(crc);
+
+    return this.send(byteArray, onProgress);
   }
 
   /**
@@ -292,18 +359,48 @@ class BluetoothTerminal {
    * @private
    */
   _handleCharacteristicValueChanged(event) {
-    const value = new TextDecoder().decode(event.target.value);
+    const value = event.target.value;
+    const byteArray = new Uint8Array(value.buffer);
+    const size = byteArray.length;
 
-    for (const c of value) {
-      if (c === this._receiveSeparator) {
-        const data = this._receiveBuffer.trim();
-        this._receiveBuffer = '';
+    if (size == 0) {
+      return;
+    }
 
-        if (data) {
-          this.receive(data);
+    if (!this._receiveBuffer.isReceiving) {
+      if (byteArray.length > 6 && byteArray[0] == BLE_CMD_START_BYTE) {
+        this._receiveBuffer.command = byteArray[1];
+        this._receiveBuffer.dataSize = (byteArray[2] << 24) | (byteArray[3] << 16) | (byteArray[4] << 8) | byteArray[5];
+        this._receiveBuffer.receivedSize = size;
+        this._receiveBuffer.crc = 0;
+        this._receiveBuffer.data = byteArray;
+        if (this._receiveBuffer.receivedSize < this._receiveBuffer.dataSize + 7) {
+          this._receiveBuffer.isReceiving = true;
         }
-      } else {
-        this._receiveBuffer += c;
+      }
+    }
+    else {
+      const combinedArray = new Uint8Array(this._receiveBuffer.data.length + byteArray.length);
+      combinedArray.set(this._receiveBuffer.data, 0);
+      combinedArray.set(byteArray, this._receiveBuffer.data.length);
+      this._receiveBuffer.data = combinedArray;
+      this._receiveBuffer.receivedSize += size;
+    }
+
+    for (let i = 0; i < size; i++) {
+      this._receiveBuffer.crc ^= byteArray[i];
+    }
+
+    // console.log("Recv " + " cmd " + this._receiveBuffer.command + ", receivedSize " + this._receiveBuffer.receivedSize + ", dataSize " + this._receiveBuffer.dataSize);
+
+    // Receive done
+    if (this._receiveBuffer.receivedSize >= this._reiceiveBuffer.dataSze + 7) {
+      if (this._receiveBuffer.crc !== 0) {
+        console.error('CRC error ' + this._receiveBuffer.crc);
+      }
+      else {
+        this._receiveBuffer.data = byteArray.buffer.slice(6, this._reiceiveBuffer.dataSze +6);
+        console.log("Recv " + this._receiveBuffer.receivedSize + "bytes, cmd " + this._receiveBuffer.command);
       }
     }
   }
@@ -316,7 +413,8 @@ class BluetoothTerminal {
    * @private
    */
   _writeToCharacteristic(characteristic, data) {
-    return characteristic.writeValue(new TextEncoder().encode(data));
+    return characteristic.writeValueWithResponse(data);
+    // return characteristic.writeValueWithoutResponse(data);
   }
 
   /**
@@ -326,17 +424,6 @@ class BluetoothTerminal {
    */
   _log(message, type = 'debug') {
     console.log(message); // eslint-disable-line no-console
-  }
-
-  /**
-   * Split by length.
-   * @param {string} string
-   * @param {number} length
-   * @return {Array}
-   * @private
-   */
-  static _splitByLength(string, length) {
-    return string.match(new RegExp('(.|[\r\n]){1,' + length + '}', 'g'));
   }
 }
 
