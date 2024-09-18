@@ -23,6 +23,7 @@ function log(message, type = 'debug') {
 }
 
 function sendCommand(command, data = null, onProgress = null) {
+    console.log('send command:', command)
     terminal._sendCommand(command, data, onProgress).
         catch((error) => log(error, 'error'))
 }
@@ -41,6 +42,9 @@ function resetToDefault() {
         return;
     }
     sendCommand(BLE_CMD_RESTORE_SETTING);
+    setTimeout(() => {
+        sendCommand(BLE_CMD_LOAD_SETTING);
+    }, 500);
 }
 
 terminal.receive = (command, data) => {
@@ -108,8 +112,8 @@ function updateSetting(commandName, value) {
     sendCommand(BLE_CMD_SEND_CMD, message);
 };
 
-const idList = ['stairMode', 'brightness', 'fadeTime', 'intervalTime', 'manualWaitTime', 'autoWaitTime', 'timerOnTime', 'timerOffTime'];
-const cmdNameList = ['set-mode', 'set-brightness-percent', 'set-fade-time', 'set-interval-time', 'set-manual-wait-time', 'set-auto-wait-time', 'set-timer-on-time', 'set-timer-off-time'];
+const idList = ['brightness', 'fadeTime', 'intervalTime', 'manualWaitTime', 'autoWaitTime', 'timerOnTime', 'timerOffTime'];
+const cmdNameList = ['set-brightness-percent', 'set-fade-time', 'set-interval-time', 'set-manual-wait-time', 'set-auto-wait-time', 'set-timer-on-time', 'set-timer-off-time'];
 for (let i = 0; i < idList.length; i++) {
     document.getElementById(idList[i]).addEventListener('change', function (event) {
         updateSetting(cmdNameList[i], event.target.value);

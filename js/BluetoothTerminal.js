@@ -20,7 +20,7 @@ class BluetoothTerminal {
     this._debug = false;
     this._connected = false;
     this._mtuSize = 23; // Max characteristic value length.
-    this._receiveTimeout = 500 ; // Receive timeout
+    this._receiveTimeout = 500; // Receive timeout
     this._device = null; // Device object cache.
     this._characteristic = null; // Characteristic object cache.
     this._resetReceiveBuffer();
@@ -378,6 +378,9 @@ class BluetoothTerminal {
         return;
       }
       this._receiveBuffer.lastTime = new Date().getTime();
+      if (this._debug) {
+        console.log('Starting receive cmd ', this._receiveBuffer.command);
+      }
     }
     else if (this._receiveBuffer.isReceiving) {
       this._receiveBuffer.receivedSize += size;
@@ -395,7 +398,7 @@ class BluetoothTerminal {
     }
 
     if (this._debug) {
-      console.log("Recv cmd " + this._receiveBuffer.command +
+      console.log("Receiving cmd " + this._receiveBuffer.command +
         ", receivedSize " + this._receiveBuffer.receivedSize +
         ", dataSize " + this._receiveBuffer.dataSize);
     }
@@ -412,7 +415,7 @@ class BluetoothTerminal {
         }
         else {
           if (this._debug) {
-            console.log("Recv " + this._receiveBuffer.receivedSize + "bytes, cmd " + this._receiveBuffer.command +
+            console.log("Received " + this._receiveBuffer.receivedSize + "bytes, cmd " + this._receiveBuffer.command +
               ", dataSize " + this._receiveBuffer.dataSize + ", data.length " + this._receiveBuffer.data.length);
           }
           this.receive(this._receiveBuffer.command, this._receiveBuffer.data);
