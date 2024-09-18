@@ -17,6 +17,7 @@ class BluetoothTerminal {
     this._receiveSeparator = receiveSeparator;
     this._sendSeparator = sendSeparator;
 
+    this._debug = false;
     this._connected = false;
     this._mtuSize = 23; // Max characteristic value length.
     this._device = null; // Device object cache.
@@ -366,7 +367,7 @@ class BluetoothTerminal {
     if (size == 0) {
       return;
     }
-    
+
     if (!this._receiveBuffer.isReceiving && byteArray.length > 6 && byteArray[0] == BLE_CMD_START_BYTE) {
       this._receiveBuffer.command = byteArray[1];
       this._receiveBuffer.dataSize = (byteArray[2] << 24) | (byteArray[3] << 16) | (byteArray[4] << 8) | byteArray[5];
@@ -390,9 +391,11 @@ class BluetoothTerminal {
       this._receiveBuffer.crc ^= byteArray[i];
     }
 
-    // console.log("Recv cmd " + this._receiveBuffer.command +
-    //   ", receivedSize " + this._receiveBuffer.receivedSize +
-    //   ", dataSize " + this._receiveBuffer.dataSize);
+    if (this._debug) {
+      console.log("Recv cmd " + this._receiveBuffer.command +
+        ", receivedSize " + this._receiveBuffer.receivedSize +
+        ", dataSize " + this._receiveBuffer.dataSize);
+    }
 
     // Receive done
     if (this._receiveBuffer.receivedSize >= this._receiveBuffer.dataSize + 7) {
@@ -405,8 +408,10 @@ class BluetoothTerminal {
           console.error('Invalid data size ' + this._receiveBuffer.data.length + ', expected ' + this._receiveBuffer.dataSize);
         }
         else {
-          console.log("Recv " + this._receiveBuffer.receivedSize + "bytes, cmd " + this._receiveBuffer.command +
-            ", dataSize " + this._receiveBuffer.dataSize + ", data.length " + this._receiveBuffer.data.length);
+          if (this._debug) {
+            console.log("Recv " + this._receiveBuffer.receivedSize + "bytes, cmd " + this._receiveBuffer.command +
+              ", dataSize " + this._receiveBuffer.dataSize + ", data.length " + this._receiveBuffer.data.length);
+          }
           this.receive(this._receiveBuffer.command, this._receiveBuffer.data);
         }
       }
