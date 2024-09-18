@@ -46,6 +46,13 @@ function setEnable(enable) {
     }
 }
 
+const enableTimerCb = document.getElementById('enableTimer');
+enableTimerCb.addEventListener('change', function () {
+  document.getElementById('timerOnTime').style.display = enableTimerCb.checked ? 'inline' : 'none';
+  document.getElementById('timerOffTime').style.display = enableTimerCb.checked ? 'inline' : 'none';
+  document.getElementById('timeHyphen').style.display = enableTimerCb.checked ? 'inline' : 'none';
+})
+
 function showNotification(message, type) {
     const notification = document.getElementById('notification');
     notification.innerText = message;
@@ -88,10 +95,10 @@ function loadSettingsToUI(data) {
       document.getElementById('enableTimer').dispatchEvent(new Event('change'));
     }
     if (data.timerOnTime) {
-      document.getElementById('timerOnTime').value = minToTime(data.timerOnTime);
+      document.getElementById('timerOnTime').value = data.timerOnTime;
     }
     if (data.timerOffTime) {
-      document.getElementById('timerOffTime').value = minToTime(data.timerOffTime);
+      document.getElementById('timerOffTime').value = data.timerOffTime;
     }
     if (data.threshold1) {
       document.getElementById('threshold1').innerText = data.threshold1;
