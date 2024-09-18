@@ -24,6 +24,19 @@ function sendCommand(command, data = null, onProgress = null) {
         catch((error) => log(error, 'error'))
 }
 
+function parseMessage(message) {
+    if (message.startsWith('[Main] BLE MTU')) {
+        const parts = message.split(' ');
+        const value = parseInt(parts[parts.length - 1]);
+        if (!isNaN(value)) {
+            if (mtuSize != value) {
+                console.log("Get MTU size: " + mtuSize);
+                sendCommand(BLE_CMD_SEND_CMD, 'ble-mtu ' + mtuSize);
+            }
+        }
+    }
+}
+
 terminal.receive = (command, data) => {
     console.log('Received command:', command);
     switch (command) {
@@ -32,6 +45,7 @@ terminal.receive = (command, data) => {
             {
                 const message = new TextDecoder().decode(data).trim();
                 addToChat(message, 'green');
+                parseMessage(message);
                 break;
             }
         default:
@@ -45,6 +59,9 @@ terminal._log = log
 terminal.onConnectionChanged = function (connected) {
     log('Connection changed to ' + connected)
     setBluetoothIcon(terminal.isConnected())
+    if (connected) {
+        sendCommand(BLE_CMD_SEND_CMD, 'ble-mtu');
+    }
 }
 
 toggleConnectionBtn.addEventListener('click', () => {
