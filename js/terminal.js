@@ -1,6 +1,9 @@
-// BLE  command
+// Client -> Server
 const BLE_CMD_SEND_CMD = 100;
-const BLE_CMD_RESP_CMD = 101;
+
+// Server -> Client
+const BLE_CMD_RESP_CMD = 150;
+const BLE_CMD_LOG = 151;
 
 let mtuSize = 23;
 
@@ -25,11 +28,14 @@ terminal.receive = (command, data) => {
     console.log('Received command:', command);
     switch (command) {
         case BLE_CMD_RESP_CMD:
-            const message = new TextDecoder().decode(data).trim();
-            addToChat(message, 'green');
-            break;
+        case BLE_CMD_LOG:
+            {
+                const message = new TextDecoder().decode(data).trim();
+                addToChat(message, 'green');
+                break;
+            }
         default:
-            console.log('Unhandled command: ' + command);
+            console.warn('Unhandled command: ' + command);
             break;
     }
 }
