@@ -20,15 +20,10 @@ class BluetoothTerminal {
     this._debug = false;
     this._connected = false;
     this._mtuSize = 23; // Max characteristic value length.
+    this._receiveTimeout = 500 ; // Receive timeout
     this._device = null; // Device object cache.
     this._characteristic = null; // Characteristic object cache.
-    this._receiveBuffer = {
-      isReceiving: false,
-      command: 0,
-      data: null,
-      dataSize: 0,
-      receivedSize: 0,
-    }
+    this._resetReceiveBuffer();
 
     // Bound functions used to add and remove appropriate event handlers.
     this._boundHandleDisconnection = this._handleDisconnection.bind(this);
@@ -368,22 +363,30 @@ class BluetoothTerminal {
       return;
     }
 
-    if (!this._receiveBuffer.isReceiving && byteArray.length > 6 && byteArray[0] == BLE_CMD_START_BYTE) {
+    if ((!this._receiveBuffer.isReceiving || new Date().getTime() - this._receiveBuffer.lastTime > this._receiveTimeout) &&
+      byteArray.length > 6 &&
+      byteArray[0] == BLE_CMD_START_BYTE) {
       this._receiveBuffer.command = byteArray[1];
       this._receiveBuffer.dataSize = (byteArray[2] << 24) | (byteArray[3] << 16) | (byteArray[4] << 8) | byteArray[5];
       this._receiveBuffer.receivedSize = size;
       this._receiveBuffer.data = new Uint8Array(byteArray.buffer);
       this._receiveBuffer.crc = 0;
-      if (this._receiveBuffer.receivedSize < this._receiveBuffer.dataSize + 7) {
-        this._receiveBuffer.isReceiving = true;
+      this._receiveBuffer.isReceiving = this._receiveBuffer.receivedSize < this._receiveBuffer.dataSize + 7;
+      if (this._receiveBuffer.receivedSize > this._receiveBuffer.dataSize + 7) {
+        console.error('Error occured');
+        this._resetReceiveBuffer();
+        return;
       }
+      this._receiveBuffer.lastTime = new Date().getTime();
     }
     else if (this._receiveBuffer.isReceiving) {
       this._receiveBuffer.receivedSize += size;
       this._receiveBuffer.data = new Uint8Array([...this._receiveBuffer.data, ...new Uint8Array(byteArray.buffer)]);
+      this._receiveBuffer.lastTime = new Date().getTime();
     }
     else {
       console.error('Error occured');
+      this._resetReceiveBuffer();
       return;
     }
 
@@ -398,7 +401,7 @@ class BluetoothTerminal {
     }
 
     // Receive done
-    if (this._receiveBuffer.receivedSize >= this._receiveBuffer.dataSize + 7) {
+    if (this._receiveBuffer.receivedSize == this._receiveBuffer.dataSize + 7) {
       if (this._receiveBuffer.crc != 0) {
         console.error('CRC error ' + this._receiveBuffer.crc);
       }
@@ -415,13 +418,23 @@ class BluetoothTerminal {
           this.receive(this._receiveBuffer.command, this._receiveBuffer.data);
         }
       }
-      this._receiveBuffer = {
-        isReceiving: false,
-        command: 0,
-        data: null,
-        dataSize: 0,
-        receivedSize: 0,
-      }
+      this._resetReceiveBuffer();
+    }
+    else if (this._receiveBuffer.receivedSize > this._receiveBuffer.dataSize + 7) {
+      console.error('Error occured');
+      this._resetReceiveBuffer();
+      return;
+    }
+  }
+
+  _resetReceiveBuffer() {
+    this._receiveBuffer = {
+      isReceiving: false,
+      command: 0,
+      data: null,
+      dataSize: 0,
+      receivedSize: 0,
+      lastTime: new Date().getTime()
     }
   }
 
