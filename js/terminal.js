@@ -1,9 +1,11 @@
 // Client -> Server
 const BLE_CMD_SEND_CMD = 100;
+const BLE_CMD_LOAD_SETTING = 101;
 
 // Server -> Client
 const BLE_CMD_RESP_CMD = 150;
 const BLE_CMD_LOG = 151;
+const BLE_CMD_RESP_SETTING = 152;
 
 let mtuSize = 23;
 
@@ -24,28 +26,34 @@ function sendCommand(command, data = null, onProgress = null) {
         catch((error) => log(error, 'error'))
 }
 
-function parseMessage(message) {
-    if (message.startsWith('[Main] BLE MTU')) {
-        const parts = message.split(' ');
-        const value = parseInt(parts[parts.length - 1]);
-        if (!isNaN(value)) {
-            if (mtuSize != value) {
-                console.log("Get MTU size: " + mtuSize);
-                sendCommand(BLE_CMD_SEND_CMD, 'ble-mtu ' + mtuSize);
-            }
-        }
+function loadSettings() {
+    if (!terminal.isConnected()) {
+        showNotification('Thiết bị chưa được kết nối', 'error');
+        return;
     }
+    sendCommand(BLE_CMD_LOAD_SETTING);
 }
 
 terminal.receive = (command, data) => {
-    console.log('Received command:', command);
+    // console.log('Received command:', command);
     switch (command) {
         case BLE_CMD_RESP_CMD:
         case BLE_CMD_LOG:
             {
                 const message = new TextDecoder().decode(data).trim();
                 addToChat(message, 'green');
-                parseMessage(message);
+                break;
+            }
+        case BLE_CMD_RESP_SETTING:
+            {
+                try {
+                    const message = new TextDecoder().decode(data).trim();
+                    const settings = JSON.parse(message);
+                    console.log('settings: ', settings);
+                    loadSettingsToUI(settings);
+                } catch (error) {
+                    console.error('Error', message);
+                }
                 break;
             }
         default:
@@ -60,7 +68,7 @@ terminal.onConnectionChanged = function (connected) {
     log('Connection changed to ' + connected)
     setBluetoothIcon(terminal.isConnected())
     if (connected) {
-        sendCommand(BLE_CMD_SEND_CMD, 'ble-mtu');
+        loadSettings();
     }
 }
 
@@ -81,3 +89,25 @@ chatInput.addEventListener('keypress', function (event) {
     }
 })
 
+function updateSetting(commandName, value) {
+    if (!terminal.isConnected()) {
+        showNotification('Thiết bị chưa được kết nối', 'error');
+        return;
+    }
+    const message = commandName + ' ' + value
+    addToChat(message, 'blue');
+    sendCommand(BLE_CMD_SEND_CMD, message);
+};
+
+const idList = ['stairMode', 'brightness', 'fadeTime', 'intervalTime', 'manualWaitTime', 'autoWaitTime', 'enableTimer', 'timerOnTime', 'timerOffTime'];
+const cmdNameList = ['set-mode', 'set-brightness-percent', 'set-fade-time', 'set-interval-time', 'set-manual-wait-time', 'set-auto-wait-time', 'set-enable-timer', 'set-time-on-time', 'set-time-off-time'];
+
+for (let i = 0; i < idList.length; i++) {
+    document.getElementById(idList[i]).addEventListener('change', function (event) {
+        updateSetting(cmdNameList[i], event.target.value);
+    });
+}
+
+document.getElementById('stairMode').addEventListener('change', function (event) {
+    updateSetting('set-mode', event.target.value == 'auto' ? 2 : 1);
+});

@@ -75,65 +75,6 @@ function saveConfiguration() {
   sendHttpRequest("/config", 'POST', data, "Lưu thành công!")
 }
 
-function loadData(data) {
-  if (data.version) {
-    document.getElementById('version').innerText = "V" + data.version;
-  }
-  if (data.stairMode) {
-    document.getElementById('stairMode').value = data.stairMode;
-  }
-  if (data.brightness) {
-    document.getElementById('brightness').value = data.brightness;
-    document.getElementById('brightnessValue').innerText = data.brightness;
-  }
-  if (data.fadeTime) {
-    document.getElementById('fadeTime').value = data.fadeTime;
-    document.getElementById('fadeTimeValue').innerText = data.fadeTime;
-  }
-  if (data.intervalTime) {
-    document.getElementById('intervalTime').value = data.intervalTime;
-    document.getElementById('intervalTimeValue').innerText = data.intervalTime;
-  }
-  if (data.manualWaitTime) {
-    document.getElementById('manualWaitTime').value = data.manualWaitTime;
-    document.getElementById('manualWaitTimeValue').innerText = data.manualWaitTime;
-  }
-  if (data.autoWaitTime) {
-    document.getElementById('autoWaitTime').value = data.autoWaitTime;
-    document.getElementById('autoWaitTimeValue').innerText = data.autoWaitTime;
-  }
-  if (data.enableTimer) {
-    document.getElementById('enableTimer').checked = data.enableTimer;
-    document.getElementById('enableTimer').dispatchEvent(new Event('change'));
-  }
-  if (data.timerOnTime) {
-    document.getElementById('timerOnTime').value = minToTime(data.timerOnTime);
-  }
-  if (data.timerOffTime) {
-    document.getElementById('timerOffTime').value = minToTime(data.timerOffTime);
-  }
-  if (data.threshold1) {
-    document.getElementById('threshold1').innerText = data.threshold1;
-  }
-  if (data.threshold2) {
-    document.getElementById('threshold2').innerText = data.threshold2;
-  }
-  if (data.sens1) {
-    document.getElementById('sensorSens1').value = data.sens1;
-    document.getElementById('sensorSens1Value').innerText = data.sens1;
-  }
-  if (data.sens2) {
-    document.getElementById('sensorSens2').value = data.sens2;
-    document.getElementById('sensorSens2Value').innerText = data.sens2;
-  }
-}
-
-function loadConfiguration() {
-  sendHttpRequest('/config', 'GET', null, null, data => {
-    loadData(data)
-  })
-}
-
 function sendRequest(request, index) {
   const data = {
     request: request,
@@ -207,5 +148,3 @@ enableTimerCb.addEventListener('change', function () {
   document.getElementById('timerOffTime').style.display = enableTimerCb.checked ? 'inline' : 'none'
   document.getElementById('timeHyphen').style.display = enableTimerCb.checked ? 'inline' : 'none'
 })
-
-// loadConfiguration()
