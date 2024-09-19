@@ -140,10 +140,6 @@ chatInput.addEventListener('keypress', function (event) {
 })
 
 function updateSetting(commandName, value) {
-    if (!terminal.isConnected()) {
-        showNotification('Thiết bị chưa được kết nối', 'error');
-        return;
-    }
     const message = commandName + ' ' + value
     addToChat(message, 'blue');
     sendCommand(BLE_CMD_SEND_CMD, message);

@@ -17,11 +17,11 @@ class BluetoothTerminal {
     this._receiveSeparator = receiveSeparator;
     this._sendSeparator = sendSeparator;
 
-    this._debug = true;
+    this._debug = false;
     this._fastMode = false;
     this._connected = false;
     this._mtuSize = 23; // Max characteristic value length.
-    this._receiveTimeout = 500; // Receive timeout
+    this._receiveTimeout = 2000; // Receive timeout
     this._device = null; // Device object cache.
     this._characteristic = null; // Characteristic object cache.
     this._resetReceiveBuffer();
@@ -121,7 +121,7 @@ class BluetoothTerminal {
       return Promise.reject(new Error('There is no connected device'));
     }
 
-    const buffer = data.buffer;
+    const buffer = data;
 
     const chunkSize = this._mtuSize - 3;
     let chunks = [];
@@ -186,10 +186,12 @@ class BluetoothTerminal {
   }
 
   _sendCommand(command, data = null, onProgress = null) {
+    console.log('sendCommand', command)
+
     const dataSize = data != null ? data.length : 0;
     const bufferSize = dataSize + 7;
     let byteArray = new Uint8Array(bufferSize);
-    
+
     byteArray[0] = BLE_CMD_START_BYTE;
     byteArray[1] = command;
     byteArray[2] = (dataSize >> 24) & 0xFF;
@@ -197,7 +199,7 @@ class BluetoothTerminal {
     byteArray[4] = (dataSize >> 8) & 0xFF;
     byteArray[5] = dataSize & 0xFF;
     for (let i = 0; i < dataSize; i++) {
-      byteArray[6 + i] = data[i];
+      byteArray[6 + i] = (typeof data === 'string') ? data.charCodeAt(i) : data[i];
     }
 
     let crc = 0;
@@ -390,7 +392,7 @@ class BluetoothTerminal {
         console.log('Starting receive cmd ', this._receiveBuffer.command);
       }
     }
-    else if (this._receiveBuffer.isReceiving) {
+    else if (this._receiveBuffer.isReceiving && new Date().getTime() - this._receiveBuffer.lastTime < this._receiveTimeout) {
       this._receiveBuffer.receivedSize += size;
       this._receiveBuffer.data = new Uint8Array([...this._receiveBuffer.data, ...new Uint8Array(byteArray.buffer)]);
       this._receiveBuffer.lastTime = new Date().getTime();
