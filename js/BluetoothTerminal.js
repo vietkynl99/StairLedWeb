@@ -17,7 +17,8 @@ class BluetoothTerminal {
     this._receiveSeparator = receiveSeparator;
     this._sendSeparator = sendSeparator;
 
-    this._debug = false;
+    this._debug = true;
+    this._fastMode = false;
     this._connected = false;
     this._mtuSize = 23; // Max characteristic value length.
     this._receiveTimeout = 500; // Receive timeout
@@ -77,6 +78,15 @@ class BluetoothTerminal {
   setMtuSize(size) {
     this._mtuSize = size;
   }
+
+  /**
+   * 
+   * @param {boolean} fastMode 
+   */
+  setFastMode(fastMode) {
+    this._fastMode = fastMode;
+  }
+
   /**
    * 
    * @param {boolean} connected 
@@ -111,7 +121,7 @@ class BluetoothTerminal {
       return Promise.reject(new Error('There is no connected device'));
     }
 
-    const buffer = new Uint8Array(data).buffer;
+    const buffer = data.buffer;
 
     const chunkSize = this._mtuSize - 3;
     let chunks = [];
@@ -176,23 +186,25 @@ class BluetoothTerminal {
   }
 
   _sendCommand(command, data = null, onProgress = null) {
-    let dataSize = data != null ? data.length : 0;
-    let byteArray = [];
-    byteArray.push(BLE_CMD_START_BYTE);
-    byteArray.push(command);
-    byteArray.push((dataSize >> 24) & 0xFF);
-    byteArray.push((dataSize >> 16) & 0xFF);
-    byteArray.push((dataSize >> 8) & 0xFF);
-    byteArray.push(dataSize & 0xFF);
+    const dataSize = data != null ? data.length : 0;
+    const bufferSize = dataSize + 7;
+    let byteArray = new Uint8Array(bufferSize);
+    
+    byteArray[0] = BLE_CMD_START_BYTE;
+    byteArray[1] = command;
+    byteArray[2] = (dataSize >> 24) & 0xFF;
+    byteArray[3] = (dataSize >> 16) & 0xFF;
+    byteArray[4] = (dataSize >> 8) & 0xFF;
+    byteArray[5] = dataSize & 0xFF;
     for (let i = 0; i < dataSize; i++) {
-      byteArray.push(data.charCodeAt(i));
+      byteArray[6 + i] = data[i];
     }
 
     let crc = 0;
     for (let i = 0; i < byteArray.length; i++) {
       crc ^= byteArray[i];
     }
-    byteArray.push(crc);
+    byteArray[bufferSize - 1] = crc;
 
     return this.send(byteArray, onProgress);
   }
@@ -258,7 +270,7 @@ class BluetoothTerminal {
     this._log('Requesting bluetooth device...');
 
     return navigator.bluetooth.requestDevice({
-      filters: [{name: this._deviceName}],
+      filters: [{ name: this._deviceName }],
       optionalServices: [this._serviceUuid],
     }).
       then((device) => {
@@ -445,8 +457,12 @@ class BluetoothTerminal {
    * @private
    */
   _writeToCharacteristic(characteristic, data) {
-    return characteristic.writeValueWithResponse(data);
-    // return characteristic.writeValueWithoutResponse(data);
+    if (this._fastMode) {
+      return characteristic.writeValueWithoutResponse(data);
+    }
+    else {
+      return characteristic.writeValueWithResponse(data);
+    }
   }
 
   /**
