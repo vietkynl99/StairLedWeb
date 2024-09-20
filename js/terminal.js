@@ -18,11 +18,17 @@ const chatInput = document.getElementById('chatInput')
 
 const terminal = new BluetoothTerminal('Stair Led', '013052ff-8771-46a9-89f8-eedbedd76935')
 
-terminal.setMtuSize(23);
+terminal.setMtuSize(450);
 
 function log(message, type = 'debug') {
     console.log(message)
-    addToChat(message, type === 'error' ? 'red' : 'black')
+    if (type == 'error') {
+        addToChat(message, 'red')
+        showNotification(message, 'error');
+    }
+    else {
+        addToChat(message, 'black')
+    }
 }
 
 function sendCommand(command, data = null, onProgress = null) {
@@ -35,6 +41,8 @@ function sendCommand(command, data = null, onProgress = null) {
         info += ', size ' + data.length;
     }
     console.log(info);
+
+    terminal.setFastMode(command == BLE_CMD_OTA_SEND_FILE);
     terminal._sendCommand(command, data, onProgress).
         catch((error) => log(error, 'error'));
 }
@@ -74,36 +82,15 @@ terminal.receive = (command, data) => {
             }
         case BLE_CMD_OTA_PREPARE_DONE:
             {
-                // const message = new TextDecoder().decode(data).trim();
-                // try {
-                // const fileInfo = JSON.parse(message);
-                // console.log('fileInfo: ', fileInfo);
-                // if (cachedOTAFile.name === fileInfo.name &&
-                //     cachedOTAInfo.size == fileInfo.size &&
-                //     cachedOTAInfo.md5 == fileInfo.md5) {
-
                 if (cachedOTAFile) {
-                    // terminal.setMtuSize(256);
-                    terminal.setFastMode(true);
-
-                    // Start send file
                     const reader = new FileReader();
                     reader.onload = function (e) {
                         const arrayBuffer = e.target.result;
                         const uint8Array = new Uint8Array(arrayBuffer);
-                        sendCommand(BLE_CMD_OTA_SEND_FILE, uint8Array, (percent) => {
-                            console.log('Percent', percent);
-                        });
+                        sendCommand(BLE_CMD_OTA_SEND_FILE, uint8Array);
                     };
                     reader.readAsArrayBuffer(cachedOTAFile);
                 }
-                //     }
-                //     else {
-                //         console.error("OTA file info is invalid");
-                //     }
-                // } catch (error) {
-                //     console.error(message, ' -> ', error);
-                // }
                 break;
             }
         default:
@@ -177,7 +164,6 @@ document.getElementById('uploadBtn').addEventListener('click', function () {
                 name: file.name,
                 size: file.size,
                 md5: md5Hash,
-                mtu: 256,
             };
             const message = JSON.stringify(info);
             console.log('Prepare OTA:', message);
