@@ -129,7 +129,6 @@ class BluetoothTerminal {
       chunks.push(buffer.slice(i, i + chunkSize));
     }
 
-    const startTime = performance.now();
     let totalChunks = chunks.length;
     let sentChunks = 0;
 
@@ -161,16 +160,7 @@ class BluetoothTerminal {
       }));
     }
 
-    return promise.then(() => {
-      // const endTime = performance.now();
-      // const timeTaken = endTime - startTime;
-      // const sizeKB = data.length / 1024;
-      // const KBps = sizeKB * 1000 / timeTaken;
-      // const formatedSize = sizeKB ? Math.round(sizeKB) + "KB" : data.length + "B";
-      // console.log(`Size ${Math.round(data.length)}B, time taken: ${Math.round(timeTaken)}ms (${Math.round(KBps)}KB/s)`);
-    }).catch(error => {
-      throw error;
-    });
+    return promise;
   }
 
   /**
