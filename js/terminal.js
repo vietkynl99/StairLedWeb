@@ -132,17 +132,13 @@ function updateSetting(commandName, value) {
     sendCommand(BLE_CMD_SEND_CMD, message);
 };
 
-const idList = ['brightness', 'fadeTime', 'intervalTime', 'manualWaitTime', 'autoWaitTime', 'timerOnTime', 'timerOffTime'];
-const cmdNameList = ['set-brightness-percent', 'set-fade-time', 'set-interval-time', 'set-manual-wait-time', 'set-auto-wait-time', 'set-timer-on-time', 'set-timer-off-time'];
+const idList = ['stairMode', 'brightness', 'fadeTime', 'intervalTime', 'manualWaitTime', 'autoWaitTime', 'timerOnTime', 'timerOffTime'];
+const cmdNameList = ['set-stair-mode', 'set-brightness-percent', 'set-fade-time', 'set-interval-time', 'set-manual-wait-time', 'set-auto-wait-time', 'set-timer-on-time', 'set-timer-off-time'];
 for (let i = 0; i < idList.length; i++) {
     document.getElementById(idList[i]).addEventListener('change', function (event) {
         updateSetting(cmdNameList[i], event.target.value);
     });
 }
-
-document.getElementById('stairMode').addEventListener('change', function (event) {
-    updateSetting('set-mode', event.target.value == 'auto' ? 2 : 1);
-});
 
 document.getElementById('enableTimer').addEventListener('change', function (event) {
     updateSetting('set-enable-timer', event.target.checked ? 1 : 0);
