@@ -43,7 +43,7 @@ function sendCommand(command, data = null, onProgress = null) {
     console.log(info);
 
     terminal.setFastMode(command == BLE_CMD_OTA_SEND_FILE);
-    terminal._sendCommand(command, data, onProgress).
+    terminal.sendCommand(command, data, onProgress).
         catch((error) => log(error, 'error'));
 }
 

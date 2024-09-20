@@ -95,6 +95,18 @@ class BluetoothTerminal {
   }
 
   /**
+   * Get the connected device name.
+   * @return {string} Device name or empty string if not connected
+   */
+  getDeviceName() {
+    if (!this._device) {
+      return '';
+    }
+
+    return this._device.name;
+  }
+
+  /**
    * Data receiving handler which called whenever the new data comes from
    * the connected device, override it to handle incoming data.
    * @param {number} command - Command
@@ -104,13 +116,39 @@ class BluetoothTerminal {
     // Handle incoming data.
   }
 
+  sendCommand(command, data = null, onProgress = null) {
+    console.log('sendCommand', command)
+
+    const dataSize = data != null ? data.length : 0;
+    const bufferSize = dataSize + 7;
+    let byteArray = new Uint8Array(bufferSize);
+
+    byteArray[0] = BLE_CMD_START_BYTE;
+    byteArray[1] = command;
+    byteArray[2] = (dataSize >> 24) & 0xFF;
+    byteArray[3] = (dataSize >> 16) & 0xFF;
+    byteArray[4] = (dataSize >> 8) & 0xFF;
+    byteArray[5] = dataSize & 0xFF;
+    for (let i = 0; i < dataSize; i++) {
+      byteArray[6 + i] = (typeof data === 'string') ? data.charCodeAt(i) : data[i];
+    }
+
+    let crc = 0;
+    for (let i = 0; i < byteArray.length; i++) {
+      crc ^= byteArray[i];
+    }
+    byteArray[bufferSize - 1] = crc;
+
+    return this._send(byteArray, onProgress);
+  }
+
   /**
-   * Send data to the connected device.
-   * @param {Uint8Array} data - Data
-   * @return {Promise} Promise which will be fulfilled when data will be sent or
-   *                   rejected if something went wrong
-   */
-  send(data, onProgress = null) {
+    * Send data to the connected device.
+    * @param {Uint8Array} data - Data
+    * @return {Promise} Promise which will be fulfilled when data will be sent or
+    *                   rejected if something went wrong
+    */
+  _send(data, onProgress = null) {
     // Return rejected promise immediately if data is empty.
     if (!data) {
       return Promise.reject(new Error('Data must be not empty'));
@@ -161,44 +199,6 @@ class BluetoothTerminal {
     }
 
     return promise;
-  }
-
-  /**
-   * Get the connected device name.
-   * @return {string} Device name or empty string if not connected
-   */
-  getDeviceName() {
-    if (!this._device) {
-      return '';
-    }
-
-    return this._device.name;
-  }
-
-  _sendCommand(command, data = null, onProgress = null) {
-    console.log('sendCommand', command)
-
-    const dataSize = data != null ? data.length : 0;
-    const bufferSize = dataSize + 7;
-    let byteArray = new Uint8Array(bufferSize);
-
-    byteArray[0] = BLE_CMD_START_BYTE;
-    byteArray[1] = command;
-    byteArray[2] = (dataSize >> 24) & 0xFF;
-    byteArray[3] = (dataSize >> 16) & 0xFF;
-    byteArray[4] = (dataSize >> 8) & 0xFF;
-    byteArray[5] = dataSize & 0xFF;
-    for (let i = 0; i < dataSize; i++) {
-      byteArray[6 + i] = (typeof data === 'string') ? data.charCodeAt(i) : data[i];
-    }
-
-    let crc = 0;
-    for (let i = 0; i < byteArray.length; i++) {
-      crc ^= byteArray[i];
-    }
-    byteArray[bufferSize - 1] = crc;
-
-    return this.send(byteArray, onProgress);
   }
 
   /**
