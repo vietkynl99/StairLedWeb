@@ -67,7 +67,7 @@ function loadSettingsToUI(data) {
     if (data.version) {
       document.getElementById('version').innerText = "V" + data.version;
     }
-    if (data.stairMode) {
+    if (data.stairMode != null) {
       document.getElementById('stairMode').value = data.stairMode;
     }
     if (data.brightness) {
