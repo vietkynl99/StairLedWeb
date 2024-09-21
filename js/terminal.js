@@ -10,6 +10,8 @@ const BLE_CMD_RESP_CMD = 150;
 const BLE_CMD_LOG = 151;
 const BLE_CMD_RESP_SETTING = 152;
 const BLE_CMD_OTA_PREPARE_DONE = 153;
+const BLE_CMD_OTA_FAILED = 154;
+const BLE_CMD_OTA_SUCCESS = 155;
 
 let cachedOTAFile = null;
 
@@ -91,6 +93,18 @@ terminal.receive = (command, data) => {
                     };
                     reader.readAsArrayBuffer(cachedOTAFile);
                 }
+                break;
+            }
+        case BLE_CMD_OTA_FAILED:
+            {
+                const message = new TextDecoder().decode(data).trim();
+                log('Cập nhật OTA thất bại: ' + message, 'error')
+                break;
+            }
+        case BLE_CMD_OTA_SUCCESS:
+            {
+                log('Cập nhật OTA thành công')
+                showNotification('Cập nhật OTA thành công', 'success');
                 break;
             }
         default:
