@@ -17,6 +17,11 @@ function setBluetoothIcon(connected) {
     iconElement.textContent = connected ? 'bluetooth' : 'bluetooth_disabled';
 }
 
+function scrollChatToBottom() {
+  const chatMessages = document.getElementById('chatMessages');
+  chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
 function addToChat(message, color = 'black') {
     const now = new Date();
     const hours = now.getHours().toString().padStart(2, '0');
