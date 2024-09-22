@@ -10,8 +10,9 @@ const BLE_CMD_RESP_CMD = 150;
 const BLE_CMD_LOG = 151;
 const BLE_CMD_RESP_SETTING = 152;
 const BLE_CMD_OTA_PREPARE_DONE = 153;
-const BLE_CMD_OTA_FAILED = 154;
-const BLE_CMD_OTA_SUCCESS = 155;
+const BLE_CMD_OTA_PROGRESS = 154;
+const BLE_CMD_OTA_FAILED = 155;
+const BLE_CMD_OTA_SUCCESS = 156;
 
 let cachedOTAFile = null;
 
@@ -95,16 +96,27 @@ terminal.receive = (command, data) => {
                 }
                 break;
             }
+        case BLE_CMD_OTA_PROGRESS:
+            {
+                const message = new TextDecoder().decode(data).trim();
+                const parts = message.split(' ');
+                if (parts.length == 2) {
+                    document.getElementById('uploadBtn').innerText = `Updating ${parts[0]}% (${parts[1]}KB/s)`;
+                }
+                break;
+            }
         case BLE_CMD_OTA_FAILED:
             {
                 const message = new TextDecoder().decode(data).trim();
                 log('Cập nhật OTA thất bại: ' + message, 'error')
+                document.getElementById('uploadBtn').innerText = 'Update';
                 break;
             }
         case BLE_CMD_OTA_SUCCESS:
             {
                 log('Cập nhật OTA thành công')
                 showNotification('Cập nhật OTA thành công', 'success');
+                document.getElementById('uploadBtn').innerText = 'Update';
                 break;
             }
         default:
@@ -118,6 +130,7 @@ terminal._log = log
 terminal.onConnectionChanged = function (connected) {
     log('Connection changed to ' + connected)
     setBluetoothIcon(terminal.isConnected())
+    document.getElementById('uploadBtn').innerText = 'Update';
     if (connected) {
         loadSettings();
     }
