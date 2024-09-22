@@ -21,7 +21,7 @@ const chatInput = document.getElementById('chatInput')
 
 const terminal = new BluetoothTerminal('Stair Led', '013052ff-8771-46a9-89f8-eedbedd76935')
 
-terminal.setMtuSize(450);
+terminal.setMtuSize(128);
 
 function log(message, type = 'debug') {
     console.log(message)
