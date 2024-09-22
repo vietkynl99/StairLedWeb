@@ -50,6 +50,12 @@ function sendCommand(command, data = null, onProgress = null) {
         catch((error) => log(error, 'error'));
 }
 
+function sendCommandLine(commandName, value) {
+    const message = commandName + ' ' + value
+    addToChat(message, 'blue');
+    sendCommand(BLE_CMD_SEND_CMD, message);
+};
+
 function loadSettings() {
     sendCommand(BLE_CMD_LOAD_SETTING);
 }
@@ -153,22 +159,35 @@ chatInput.addEventListener('keypress', function (event) {
     }
 })
 
-function updateSetting(commandName, value) {
-    const message = commandName + ' ' + value
-    addToChat(message, 'blue');
-    sendCommand(BLE_CMD_SEND_CMD, message);
-};
+const idList = ['stairMode',
+    'brightness',
+    'fadeTime',
+    'intervalTime',
+    'manualWaitTime',
+    'autoWaitTime',
+    'timerOnTime',
+    'timerOffTime',
+    'sensorSens1',
+    'sensorSens2'];
+const cmdNameList = ['set-stair-mode',
+    'set-brightness-percent',
+    'set-fade-time',
+    'set-interval-time',
+    'set-manual-wait-time',
+    'set-auto-wait-time',
+    'set-timer-on-time',
+    'set-timer-off-time',
+    'set-sensor-sensitivity 0',
+    'set-sensor-sensitivity 1'];
 
-const idList = ['stairMode', 'brightness', 'fadeTime', 'intervalTime', 'manualWaitTime', 'autoWaitTime', 'timerOnTime', 'timerOffTime'];
-const cmdNameList = ['set-stair-mode', 'set-brightness-percent', 'set-fade-time', 'set-interval-time', 'set-manual-wait-time', 'set-auto-wait-time', 'set-timer-on-time', 'set-timer-off-time'];
 for (let i = 0; i < idList.length; i++) {
     document.getElementById(idList[i]).addEventListener('change', function (event) {
-        updateSetting(cmdNameList[i], event.target.value);
+        sendCommandLine(cmdNameList[i], event.target.value);
     });
 }
 
 document.getElementById('enableTimer').addEventListener('change', function (event) {
-    updateSetting('set-enable-timer', event.target.checked ? 1 : 0);
+    sendCommandLine('set-enable-timer', event.target.checked ? 1 : 0);
 });
 
 document.getElementById('uploadBtn').addEventListener('click', function () {
