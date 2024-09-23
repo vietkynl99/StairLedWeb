@@ -21,7 +21,7 @@ class BluetoothTerminal {
     this._fastMode = false;
     this._connected = false;
     this._mtuSize = 23; // Max characteristic value length.
-    this._receiveTimeout = 2000; // Receive timeout
+    this._receiveTimeout = 10000; // Receive timeout
     this._device = null; // Device object cache.
     this._characteristic = null; // Characteristic object cache.
     this._resetReceiveBuffer();
