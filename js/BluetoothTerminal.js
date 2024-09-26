@@ -373,7 +373,7 @@ class BluetoothTerminal {
       this._receiveBuffer.crc = 0;
       this._receiveBuffer.isReceiving = this._receiveBuffer.receivedSize < this._receiveBuffer.dataSize + 7;
       if (this._receiveBuffer.receivedSize > this._receiveBuffer.dataSize + 7) {
-        console.error('Error occured');
+        console.error('Size error');
         this._resetReceiveBuffer();
         return;
       }
@@ -382,13 +382,18 @@ class BluetoothTerminal {
         console.log('Starting receive cmd ', this._receiveBuffer.command);
       }
     }
-    else if (this._receiveBuffer.isReceiving && new Date().getTime() - this._receiveBuffer.lastTime < this._receiveTimeout) {
+    else if (this._receiveBuffer.isReceiving) {
+      if (new Date().getTime() - this._receiveBuffer.lastTime > this._receiveTimeout) {
+        console.error('Timeout error');
+        this._resetReceiveBuffer();
+        return;
+      }
       this._receiveBuffer.receivedSize += size;
       this._receiveBuffer.data = new Uint8Array([...this._receiveBuffer.data, ...new Uint8Array(byteArray.buffer)]);
       this._receiveBuffer.lastTime = new Date().getTime();
     }
     else {
-      console.error('Error occured');
+      console.error('Unknown error');
       this._resetReceiveBuffer();
       return;
     }
@@ -424,7 +429,7 @@ class BluetoothTerminal {
       this._resetReceiveBuffer();
     }
     else if (this._receiveBuffer.receivedSize > this._receiveBuffer.dataSize + 7) {
-      console.error('Error occured');
+      console.error('Size error');
       this._resetReceiveBuffer();
       return;
     }
