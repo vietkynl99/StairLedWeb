@@ -117,29 +117,43 @@ class BluetoothTerminal {
   }
 
   sendCommand(command, data = null, onProgress = null) {
-    console.log('sendCommand', command)
-
+    const chunkSize = this._mtuSize - 3 - 4;
     const dataSize = data != null ? data.length : 0;
-    const bufferSize = dataSize + 7;
-    let byteArray = new Uint8Array(bufferSize);
+    const bufferSize = dataSize + 6;
+    let buffer = new Uint8Array(bufferSize);
 
-    byteArray[0] = BLE_CMD_START_BYTE;
-    byteArray[1] = command;
-    byteArray[2] = (dataSize >> 24) & 0xFF;
-    byteArray[3] = (dataSize >> 16) & 0xFF;
-    byteArray[4] = (dataSize >> 8) & 0xFF;
-    byteArray[5] = dataSize & 0xFF;
+    console.log('sendCommand', command, 'size', dataSize)
+
+    buffer[0] = command;
+    buffer[1] = dataSize & 0xFF;
+    buffer[2] = (dataSize >> 8) & 0xFF;
+    buffer[3] = (dataSize >> 16) & 0xFF;
+    buffer[4] = (dataSize >> 24) & 0xFF;
     for (let i = 0; i < dataSize; i++) {
-      byteArray[6 + i] = (typeof data === 'string') ? data.charCodeAt(i) : data[i];
+      buffer[5 + i] = (typeof data === 'string') ? data.charCodeAt(i) : data[i];
     }
 
+    let chunks = [];
+    let index = 0;
     let crc = 0;
-    for (let i = 0; i < byteArray.length; i++) {
-      crc ^= byteArray[i];
+    for (let offset = 0; offset < buffer.byteLength; offset += chunkSize) {
+      let chunkIndexArr = new Uint8Array(4);
+      chunkIndexArr[0] = index & 0xFF;
+      chunkIndexArr[1] = (index >> 8) & 0xFF;
+      chunkIndexArr[2] = (index >> 16) & 0xFF;
+      chunkIndexArr[3] = (index >> 24) & 0xFF;
+      let chunk = new Uint8Array([...chunkIndexArr, ...buffer.slice(offset, offset + chunkSize)]);
+      for (let i = 0; i < chunk.length; i++) {
+        crc ^= chunk[i];
+      }
+      if (offset + chunkSize >= buffer.length) {
+        chunk[chunk.length - 1] = crc;
+      }
+      chunks.push(chunk);
+      index++;
     }
-    byteArray[bufferSize - 1] = crc;
 
-    return this._send(byteArray, onProgress);
+    return this._send(chunks, onProgress);
   }
 
   /**
@@ -148,23 +162,23 @@ class BluetoothTerminal {
     * @return {Promise} Promise which will be fulfilled when data will be sent or
     *                   rejected if something went wrong
     */
-  _send(data, onProgress = null) {
+  _send(chunks, onProgress = null) {
+    for (let chunk of chunks) {
+      let msg = chunk.length + '  ';
+      for (let data of chunk) {
+        msg += data + '.';
+      }
+      console.log(msg);
+    }
+
     // Return rejected promise immediately if data is empty.
-    if (!data) {
+    if (!chunks) {
       return Promise.reject(new Error('Data must be not empty'));
     }
 
     // Return rejected promise immediately if there is no connected device.
     if (!this._connected) {
       return Promise.reject(new Error('There is no connected device'));
-    }
-
-    const buffer = data;
-
-    const chunkSize = this._mtuSize - 3;
-    let chunks = [];
-    for (let i = 0; i < buffer.byteLength; i += chunkSize) {
-      chunks.push(buffer.slice(i, i + chunkSize));
     }
 
     let totalChunks = chunks.length;
@@ -356,41 +370,59 @@ class BluetoothTerminal {
    */
   _handleCharacteristicValueChanged(event) {
     const value = event.target.value;
-    const byteArray = new Uint8Array(value.buffer);
-    const size = byteArray.length;
+    const data = new Uint8Array(value.buffer);
+    const size = data.length;
 
-    if (size == 0) {
+    if (size < 4) {
       return;
     }
 
-    if ((!this._receiveBuffer.isReceiving || new Date().getTime() - this._receiveBuffer.lastTime > this._receiveTimeout) &&
-      byteArray.length > 6 &&
-      byteArray[0] == BLE_CMD_START_BYTE) {
-      this._receiveBuffer.command = byteArray[1];
-      this._receiveBuffer.dataSize = (byteArray[2] << 24) | (byteArray[3] << 16) | (byteArray[4] << 8) | byteArray[5];
-      this._receiveBuffer.receivedSize = size;
-      this._receiveBuffer.data = new Uint8Array(byteArray.buffer);
+    let index = data[0] | (data[1] << 8) | (data[2] << 16) | (data[3] << 24);
+
+
+    if (!this._receiveBuffer.isReceiving && size > 9 && index == 0) {
+      this._receiveBuffer.command = data[4];
+      this._receiveBuffer.dataSize = data[5] | (data[6] << 8) | (data[7] << 16) | (data[8] << 24);
+      this._receiveBuffer.chunkIndex = 0;
+      this._receiveBuffer.maxChunkIndex = Math.floor((this._receiveBuffer.dataSize + 6) / (this._mtuSize - 7));
       this._receiveBuffer.crc = 0;
-      this._receiveBuffer.isReceiving = this._receiveBuffer.receivedSize < this._receiveBuffer.dataSize + 7;
-      if (this._receiveBuffer.receivedSize > this._receiveBuffer.dataSize + 7) {
-        console.error('Size error');
-        this._resetReceiveBuffer();
-        return;
+
+      console.log('maxChunkIndex', this._receiveBuffer.maxChunkIndex)
+
+      // Recv done
+      if (this._receiveBuffer.maxChunkIndex == 0) {
+        const dataSize = size - 10; // 10 bytes: index(4), command(1), dataSize(4), CRC(1)
+        if (dataSize != this._receiveBuffer.dataSize) {
+          console.error('Size error');
+          this._resetReceiveBuffer();
+          return;
+        }
+        else {
+          this._receiveBuffer.data = new Uint8Array(data.slice(9, dataSize + 9));
+          this._receiveBuffer.receivedDataSize = dataSize;
+        }
+        this._receiveBuffer.isReceiving = false;
       }
-      this._receiveBuffer.lastTime = new Date().getTime();
-      if (this._debug) {
-        console.log('Starting receive cmd ', this._receiveBuffer.command);
+      else {
+        const dataSize = size - 9; // 9 bytes: index(4), command(1), dataSize(4)
+        this._receiveBuffer.data = new Uint8Array(data.slice(9, dataSize + 9));
+        this._receiveBuffer.receivedDataSize += dataSize;
+        this._receiveBuffer.isReceiving = true;
       }
     }
     else if (this._receiveBuffer.isReceiving) {
-      if (new Date().getTime() - this._receiveBuffer.lastTime > this._receiveTimeout) {
-        console.error('Timeout error');
+      this._receiveBuffer.chunkIndex++;
+      if (index != this._receiveBuffer.chunkIndex || index > this._receiveBuffer.maxChunkIndex) {
+        console.error('Chunk index exceeds');
         this._resetReceiveBuffer();
         return;
       }
-      this._receiveBuffer.receivedSize += size;
-      this._receiveBuffer.data = new Uint8Array([...this._receiveBuffer.data, ...new Uint8Array(byteArray.buffer)]);
-      this._receiveBuffer.lastTime = new Date().getTime();
+
+      // 5 bytes: index(4), CRC(1)
+      // 4 bytes: index(4)
+      const dataSize = index == this._receiveBuffer.maxChunkIndex ? size - 5 : size - 4;
+      this._receiveBuffer.data = new Uint8Array([...this._receiveBuffer.data, ...data.slice(4, dataSize + 4)]);
+      this._receiveBuffer.receivedDataSize += dataSize;
     }
     else {
       console.error('Unknown error');
@@ -399,39 +431,28 @@ class BluetoothTerminal {
     }
 
     for (let i = 0; i < size; i++) {
-      this._receiveBuffer.crc ^= byteArray[i];
+      this._receiveBuffer.crc ^= data[i];
     }
 
-    if (this._debug) {
-      console.log("Receiving cmd " + this._receiveBuffer.command +
-        ", receivedSize " + this._receiveBuffer.receivedSize +
-        ", dataSize " + this._receiveBuffer.dataSize);
-    }
+    if (this._receiveBuffer.chunkIndex == this._receiveBuffer.maxChunkIndex) {
+      if (this._receiveBuffer.dataSize != this._receiveBuffer.receivedDataSize) {
+        console.error('Size error');
+        this._resetReceiveBuffer();
+        return;
+      }
+      if (this._receiveBuffer.crc !== 0) {
+        console.error('CRC error');
+        this._resetReceiveBuffer();
+        return;
+      }
 
-    // Receive done
-    if (this._receiveBuffer.receivedSize == this._receiveBuffer.dataSize + 7) {
-      if (this._receiveBuffer.crc != 0) {
-        console.error('CRC error ' + this._receiveBuffer.crc);
+      let msg = '';
+      for (let i = 0; i < this._receiveBuffer.receivedDataSize; i++) {
+        msg += this._receiveBuffer.data[i] + '.';
       }
-      else {
-        this._receiveBuffer.data = this._receiveBuffer.data.slice(6, -1);
-        if (this._receiveBuffer.data.length != this._receiveBuffer.dataSize) {
-          console.error('Invalid data size ' + this._receiveBuffer.data.length + ', expected ' + this._receiveBuffer.dataSize);
-        }
-        else {
-          if (this._debug) {
-            console.log("Received " + this._receiveBuffer.receivedSize + "bytes, cmd " + this._receiveBuffer.command +
-              ", dataSize " + this._receiveBuffer.dataSize + ", data.length " + this._receiveBuffer.data.length);
-          }
-          this.receive(this._receiveBuffer.command, this._receiveBuffer.data);
-        }
-      }
+      console.log('Received', msg, 'bytes', this._receiveBuffer.dataSize, this._receiveBuffer.data.length);
+      this.receive(this._receiveBuffer.command, this._receiveBuffer.data);
       this._resetReceiveBuffer();
-    }
-    else if (this._receiveBuffer.receivedSize > this._receiveBuffer.dataSize + 7) {
-      console.error('Size error');
-      this._resetReceiveBuffer();
-      return;
     }
   }
 
@@ -439,9 +460,13 @@ class BluetoothTerminal {
     this._receiveBuffer = {
       isReceiving: false,
       command: 0,
+      chunkIndex: 0,
+      maxChunkIndex: 0,
+      crc: 0,
       data: null,
       dataSize: 0,
       receivedSize: 0,
+      receivedDataSize: 0,
       lastTime: new Date().getTime()
     }
   }

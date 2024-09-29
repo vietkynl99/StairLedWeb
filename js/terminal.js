@@ -39,11 +39,6 @@ function sendCommand(command, data = null, onProgress = null) {
         showNotification('Thiết bị chưa được kết nối', 'error');
         return;
     }
-    let info = 'send command ' + command;
-    if (data) {
-        info += ', size ' + data.length;
-    }
-    console.log(info);
 
     terminal.setFastMode(command == BLE_CMD_OTA_SEND_FILE);
     terminal.sendCommand(command, data, onProgress).
