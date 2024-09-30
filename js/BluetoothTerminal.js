@@ -163,14 +163,6 @@ class BluetoothTerminal {
     *                   rejected if something went wrong
     */
   _send(chunks, onProgress = null) {
-    for (let chunk of chunks) {
-      let msg = chunk.length + '  ';
-      for (let data of chunk) {
-        msg += data + '.';
-      }
-      console.log(msg);
-    }
-
     // Return rejected promise immediately if data is empty.
     if (!chunks) {
       return Promise.reject(new Error('Data must be not empty'));
@@ -387,8 +379,6 @@ class BluetoothTerminal {
       this._receiveBuffer.maxChunkIndex = Math.floor((this._receiveBuffer.dataSize + 6) / (this._mtuSize - 7));
       this._receiveBuffer.crc = 0;
 
-      console.log('maxChunkIndex', this._receiveBuffer.maxChunkIndex)
-
       // Recv done
       if (this._receiveBuffer.maxChunkIndex == 0) {
         const dataSize = size - 10; // 10 bytes: index(4), command(1), dataSize(4), CRC(1)
@@ -450,7 +440,7 @@ class BluetoothTerminal {
       for (let i = 0; i < this._receiveBuffer.receivedDataSize; i++) {
         msg += this._receiveBuffer.data[i] + '.';
       }
-      console.log('Received', msg, 'bytes', this._receiveBuffer.dataSize, this._receiveBuffer.data.length);
+      console.log('Received command', this._receiveBuffer.command, 'size', this._receiveBuffer.data.length);
       this.receive(this._receiveBuffer.command, this._receiveBuffer.data);
       this._resetReceiveBuffer();
     }
