@@ -122,7 +122,9 @@ class BluetoothTerminal {
     const bufferSize = dataSize + 6;
     let buffer = new Uint8Array(bufferSize);
 
-    console.log('sendCommand', command, 'size', dataSize)
+    if (this._debug) {
+      console.log('sendCommand', command, 'size', dataSize)
+    }
 
     buffer[0] = command;
     buffer[1] = dataSize & 0xFF;
@@ -440,7 +442,9 @@ class BluetoothTerminal {
       for (let i = 0; i < this._receiveBuffer.receivedDataSize; i++) {
         msg += this._receiveBuffer.data[i] + '.';
       }
-      console.log('Received command', this._receiveBuffer.command, 'size', this._receiveBuffer.data.length);
+      if (this._debug) {
+        console.log('Received command', this._receiveBuffer.command, 'size', this._receiveBuffer.data.length);
+      }
       this.receive(this._receiveBuffer.command, this._receiveBuffer.data);
       this._resetReceiveBuffer();
     }
