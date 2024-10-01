@@ -89,6 +89,7 @@ terminal.receive = (command, data) => {
                 if (cachedOTAFile) {
                     const reader = new FileReader();
                     reader.onload = function (e) {
+                        showNotification('Bắt đầu cập nhật OTA...', 'success');
                         const arrayBuffer = e.target.result;
                         const uint8Array = new Uint8Array(arrayBuffer);
                         sendCommand(BLE_CMD_OTA_SEND_FILE, uint8Array);
@@ -198,7 +199,6 @@ document.getElementById('uploadBtn').addEventListener('click', function () {
             const md5Hash = CryptoJS.MD5(wordArray).toString(CryptoJS.enc.Hex);
 
             const info = {
-                name: file.name,
                 size: file.size,
                 md5: md5Hash,
             };
