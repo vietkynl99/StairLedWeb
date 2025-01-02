@@ -21,7 +21,7 @@ const chatInput = document.getElementById('chatInput')
 
 const terminal = new BluetoothTerminal('Stair Led', '013052ff-8771-46a9-89f8-eedbedd76935')
 
-terminal.setMtuSize(128);
+terminal.setMtuSize(500);
 
 function log(message, type = 'debug') {
     console.log(message)
@@ -39,11 +39,6 @@ function sendCommand(command, data = null, onProgress = null) {
         showNotification('Thiết bị chưa được kết nối', 'error');
         return;
     }
-    let info = 'send command ' + command;
-    if (data) {
-        info += ', size ' + data.length;
-    }
-    console.log(info);
 
     terminal.setFastMode(command == BLE_CMD_OTA_SEND_FILE);
     terminal.sendCommand(command, data, onProgress).
@@ -94,6 +89,7 @@ terminal.receive = (command, data) => {
                 if (cachedOTAFile) {
                     const reader = new FileReader();
                     reader.onload = function (e) {
+                        showNotification('Bắt đầu cập nhật OTA...', 'success');
                         const arrayBuffer = e.target.result;
                         const uint8Array = new Uint8Array(arrayBuffer);
                         sendCommand(BLE_CMD_OTA_SEND_FILE, uint8Array);
@@ -203,7 +199,6 @@ document.getElementById('uploadBtn').addEventListener('click', function () {
             const md5Hash = CryptoJS.MD5(wordArray).toString(CryptoJS.enc.Hex);
 
             const info = {
-                name: file.name,
                 size: file.size,
                 md5: md5Hash,
             };
