@@ -161,8 +161,6 @@ const idList = ['stairMode',
     'intervalTime',
     'manualWaitTime',
     'autoWaitTime',
-    'timerOnTime',
-    'timerOffTime',
     'sensorSens1',
     'sensorSens2'];
 const cmdNameList = ['set-stair-mode',
@@ -181,10 +179,6 @@ for (let i = 0; i < idList.length; i++) {
         sendCommandLine(cmdNameList[i], event.target.value);
     });
 }
-
-document.getElementById('enableTimer').addEventListener('change', function (event) {
-    sendCommandLine('set-enable-timer', event.target.checked ? 1 : 0);
-});
 
 document.getElementById('uploadBtn').addEventListener('click', function () {
     const fileInput = document.getElementById('fileInput');
