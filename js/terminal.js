@@ -166,7 +166,7 @@ const idList = ['stairMode',
     'sensorSens1',
     'sensorSens2'];
 const cmdNameList = ['set-stair-mode',
-    'set-brightness-percent',
+    'set-brightness',
     'set-fade-time',
     'set-interval-time',
     'set-manual-wait-time',
